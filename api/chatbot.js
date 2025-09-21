@@ -2,6 +2,7 @@ const { Client } = require('@notionhq/client');
 
 const notion = new Client({
     auth: process.env.NOTION_TOKEN,
+    notionVersion: '2022-06-28' // Versión específica para tokens ntn_
 });
 
 const DATABASE_ID = process.env.NOTION_DATABASE_ID;
@@ -26,6 +27,7 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Message is required' });
         }
 
+        console.log('Buscando en Notion para:', message);
         const answer = await searchInNotion(message);
         
         return res.status(200).json({
@@ -45,6 +47,8 @@ module.exports = async function handler(req, res) {
 
 async function searchInNotion(userMessage) {
     try {
+        console.log('Consultando base de datos:', DATABASE_ID);
+        
         const response = await notion.databases.query({
             database_id: DATABASE_ID,
             filter: {
@@ -55,6 +59,8 @@ async function searchInNotion(userMessage) {
             }
         });
 
+        console.log('Resultados encontrados:', response.results.length);
+        
         const entries = response.results;
         const messageLower = userMessage.toLowerCase();
         
@@ -69,7 +75,9 @@ async function searchInNotion(userMessage) {
             }
         }
 
-        if (bestMatch && maxScore > 0.3) {
+        console.log('Mejor puntuación:', maxScore);
+
+        if (bestMatch && maxScore > 0.1) { // Umbral más bajo para testing
             return extractAnswer(bestMatch);
         }
 
@@ -88,12 +96,14 @@ function calculateRelevanceScore(entry, userMessage) {
         const pregunta = getPlainText(entry.properties.Pregunta);
         const keywords = getMultiSelect(entry.properties.Keywords);
         
+        // Buscar keywords
         keywords.forEach(keyword => {
             if (userMessage.includes(keyword.toLowerCase())) {
                 score += 0.3;
             }
         });
         
+        // Buscar palabras en la pregunta
         const preguntaWords = pregunta.toLowerCase().split(' ');
         const messageWords = userMessage.split(' ');
         
